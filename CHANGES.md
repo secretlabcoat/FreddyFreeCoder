@@ -6,3 +6,5 @@
 - System prompt asks the AI to label fences with real filenames like ```index.html.
 
 - Renamed to Freddy Free Coder and set Freddy background image.
+
+- Fixed light-mode contrast: replies and title now stay bright on the dark Freddy UI.
