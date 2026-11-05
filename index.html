@@ -89,7 +89,7 @@ const $=s=>document.querySelector(s);
 function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k.startsWith('on'))e[k]=a[k];else if(k==='class')e.className=a[k];else e[k]=a[k]}c.flat().forEach(x=>e.append(x));return e}
 function load(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
 const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web code (HTML/CSS/JS) in fenced code blocks. Be concise.",mode:'sticky',cur:0,last:null,providers:[
- {id:'gemini',name:'Gemini',type:'gemini',url:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-flash-latest',key:'',on:true},
+ {id:'gemini',name:'Gemini',type:'gemini',url:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-flash-lite-latest',key:'',on:true},
  {id:'groq',name:'Groq',type:'openai',url:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile',key:'',on:true},
  {id:'openrouter',name:'OpenRouter',type:'openai',url:'https://openrouter.ai/api/v1',model:'meta-llama/llama-3.3-70b-instruct:free',key:'',on:true},
  {id:'cerebras',name:'Cerebras',type:'openai',url:'https://api.cerebras.ai/v1',model:'llama-3.3-70b',key:'',on:true},
