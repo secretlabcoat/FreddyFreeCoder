@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Freddy Free Coder</title>
+<!--SELFMOD-->
+<script>
+(function(){
+  if(window.__FMOD||/[?&]safe=1/.test(location.search))return;
+  try{var m=localStorage.getItem('fc.selfmod');if(!m)return;
+    window.__FMOD=1;
+    m=m.replace('<!--SELFMOD-->','<script>window.__FMOD=1<\/script><!--SELFMOD-->');
+    document.open();document.write(m);document.close();
+  }catch(e){}
+})();
+</script>
 <style>
 :root{--bg:#fff;--fg:#1a1a1a;--mut:#6b6b6b;--card:#f2f2ef;--bd:#d9d9d4;--ac:#2563eb;--acfg:#fff;--cbg:#16181d;--cfg:#e8e8e8;--err:#b42318}
 @media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#ececec;--mut:#9a9a9a;--card:#1f1f1f;--bd:#333;--ac:#5b9bff;--acfg:#0b0b0b;--cbg:#0b0c0f;--err:#ff8a80}}
@@ -126,7 +137,7 @@ body.bg-off:before{opacity:0 !important}
 </head>
 <body>
 <header><b>Freddy Free Coder</b><button id="bNew">New</button><button id="bSn">Saved</button><button id="bLog">Log</button><button id="bSet">Keys</button><button id="bBg" title="Background">BG</button><div id="status"></div></header>
-<div id="projectbar"><span id="projectName">Default project</span><button id="bMenu" type="button">Menu</button><div class="drawer-btns"><button id="bProjects">Projects</button><button id="bFiles">Files</button><button id="bMemory">Memory</button></div></div>
+<div id="projectbar"><span id="projectName">Default project</span><button id="bMenu" type="button">Menu</button><div class="drawer-btns"><button id="bProjects">Projects</button><button id="bFiles">Files</button><button id="bMemory">Memory</button><button id="bSelf">Mod Freddy</button></div></div>
 <div id="msgs"></div>
 <div id="bar"><button id="bAttach" type="button" title="Attach photo or file">＋</button><textarea id="inp" rows="1" placeholder="Describe what to build or fix…"></textarea><button class="p" id="bSend">Send</button><p id="attachHint" class="note" hidden></p><input id="quickAttach" type="file" multiple accept="image/*,.html,.htm,.css,.js,.json,.md,.txt,.svg,text/*" style="display:none"></div>
 <script>
@@ -145,7 +156,7 @@ let activeId=load('fc.active','default');
 let project=projects.find(x=>x.id===activeId)||projects[0];activeId=project.id;chat=Array.isArray(project.chat)?project.chat:chat;
 function persistProjects(){project.chat=chat;localStorage.setItem('fc.projects',JSON.stringify(projects));localStorage.setItem('fc.active',JSON.stringify(activeId))}
 function switchProject(p){if(busy)return;persistProjects();project=p;activeId=p.id;chat=Array.isArray(p.chat)?p.chat:[];save();draw()}
-function projectContext(){const files=Object.entries(project.files||{});let remaining=45000;const chunks=[];for(const [name,code] of files){if(remaining<=0){chunks.push('\nFILE: '+name+' (omitted — context full)');continue}let body=code;if(/^data:image\//i.test(code)){const keep=Math.min(code.length,Math.max(8000,Math.floor(remaining*0.5)));body='[PHOTO attached as data URL; first chars shown so you can reuse it in <img src=\"...\">]\n'+code.slice(0,keep);if(keep<code.length)body+='\n…(truncated)'}else{body=code.slice(0,Math.min(code.length,remaining))}const part='\nFILE: '+name+'\n```\n'+body+'\n```';chunks.push(part);remaining-=body.length}return 'PROJECT: '+project.name+'\nPERSISTENT PROJECT MEMORY / DECISIONS:\n'+(project.memory||'None yet')+'\nPROJECT FILES ('+files.length+', capped at 45k characters total):'+chunks.join('\n')+'\nKeep existing project decisions and files consistent. When modifying a file, return its FULL updated contents in a fenced code block with the EXACT relative filename as the fence label (example: ```index.html). Never use a bare ```html label. Never provide partial snippets as a full file. The user reviews and applies changes manually; do not claim files were saved automatically.'}
+function projectContext(){const files=Object.entries(project.files||{});const selfMod=project.id==='freddy-self';let remaining=selfMod?80000:45000;const chunks=[];for(const [name,code] of files){if(remaining<=0){chunks.push('\nFILE: '+name+' (omitted — context full)');continue}let body=code;if(/^data:image\//i.test(code)){const keep=Math.min(code.length,Math.max(8000,Math.floor(remaining*0.5)));body='[PHOTO attached as data URL; first chars shown so you can reuse it in <img src=\"...\">]\n'+code.slice(0,keep);if(keep<code.length)body+='\n…(truncated)'}else{body=code.slice(0,Math.min(code.length,remaining))}const part='\nFILE: '+name+'\n```\n'+body+'\n```';chunks.push(part);remaining-=body.length}return 'PROJECT: '+project.name+'\nPERSISTENT PROJECT MEMORY / DECISIONS:\n'+(project.memory||'None yet')+'\nPROJECT FILES ('+files.length+', capped at 45k characters total):'+chunks.join('\n')+(selfMod?SELF_RULES:'\nKeep existing project decisions and files consistent. When modifying a file, return its FULL updated contents in a fenced code block with the EXACT relative filename as the fence label (example: ```index.html). Never use a bare ```html label. Never provide partial snippets as a full file. The user reviews and applies changes manually; do not claim files were saved automatically.')}
 
 if(!Array.isArray(cfg.providers))cfg={...DEF,providers:DEF.providers.map(p=>({...p}))};
 // Restore built-in providers removed by earlier versions, preserving existing keys and settings.
@@ -302,6 +313,7 @@ function applyReview(filename,code){
   const o=overlay('Save this file',b);
 }
 function codeBlock(lang,code){
+  if(/freddy-patch/i.test(lang||'')||/^<{7} SEARCH/m.test(code))return patchBlock(code);
   const filename=proposedFilename(lang,code);
   const label=filename||lang||'code';
   const html=isHtml(lang,code);
@@ -309,6 +321,7 @@ function codeBlock(lang,code){
   const wrap=h('div',{class:'cb'+(long?' collapsed':'')});
   const actions=h('div',{class:'actions'});
   if(html)actions.append(h('button',{class:'p',textContent:'Preview',onclick:()=>preview(code)}));
+  if(filename==='freddy.html')actions.append(h('button',{class:'p',textContent:'Apply to Freddy',onclick:()=>applySelfMod(code,'full file')}));
   if(filename)actions.append(h('button',{class:'p',textContent:'Save as '+filename,onclick:()=>applyReview(filename,code)}));
   else actions.append(h('button',{textContent:'Save to project…',onclick:()=>{
     const name=prompt('Filename to save as (e.g. index.html)','index.html');
@@ -335,7 +348,9 @@ function body(text){
   const f=document.createDocumentFragment();let last=0,m;const re=/```([^\n`]*)\n([\s\S]*?)```/g;
   const para=s=>{s=s.trim();if(s)f.append(h('p',{textContent:s}))};
   while((m=re.exec(text))){para(text.slice(last,m.index));f.append(codeBlock(m[1],m[2]));last=re.lastIndex}
-  para(text.slice(last));return f;
+  const rest=text.slice(last),um=/```([^\n`]*)\n([\s\S]*)$/.exec(rest);
+  if(um){para(rest.slice(0,um.index));f.append(codeBlock(um[1],um[2]))}else para(rest);
+  return f;
 }
 function draw(){
   const box=$('#msgs');box.textContent='';
@@ -388,6 +403,67 @@ function settings(){
   rebuild();overlay('Providers & keys',b);
 }
 
+const SELF_RULES="\nYOU ARE EDITING FREDDY FREE CODER ITSELF (the app the user is chatting in). Its full current source is FILE freddy.html above. Return changes ONLY as one fenced block labeled ```freddy-patch containing one or more edits in this exact format:\n<<<<<<< SEARCH\n(exact lines copied from freddy.html)\n=======\n(replacement lines)\n>>>>>>> REPLACE\nSEARCH text must match freddy.html exactly and be unique; keep each edit small. Do not return the whole file. Before the block, list in plain words, step by step, what you are changing. After the block, say: Tap Apply to Freddy to install it.";
+function parsePatch(code){
+  const re=/<{7} SEARCH\n([\s\S]*?)\n={7}\n([\s\S]*?)\n>{7} REPLACE/g;const edits=[];let m;
+  while((m=re.exec(code)))edits.push({find:m[1],repl:m[2]});return edits;
+}
+async function freddySource(){
+  const mod=localStorage.getItem('fc.selfmod');if(mod)return mod;
+  const r=await fetch(location.pathname+'?raw='+Date.now(),{cache:'no-store'});return await r.text();
+}
+async function applyPatch(code){
+  const edits=parsePatch(code);if(!edits.length)throw Error('No SEARCH/REPLACE edits found.');
+  let src=await freddySource();
+  edits.forEach((e,i)=>{const n=src.split(e.find).length-1;
+    if(n!==1)throw Error('Edit '+(i+1)+(n?' matches more than one place.':' did not match Freddy\u2019s code.'));
+    src=src.replace(e.find,()=>e.repl)});
+  return src;
+}
+function applySelfMod(newSrc,what){
+  if(!/<html[\s>]/i.test(newSrc)||!/<\/html>/i.test(newSrc)){alert('That is not a complete Freddy page, so nothing was changed.');return}
+  if(!confirm('Install this change to Freddy ('+what+')? Undo is in Menu \u2192 Mod Freddy.'))return;
+  const prev=localStorage.getItem('fc.selfmod');
+  const hist=load('fc.selfmod.hist',[]);hist.push(prev||'');try{localStorage.setItem('fc.selfmod.hist',JSON.stringify(hist.slice(-5)))}catch(e){}
+  try{localStorage.setItem('fc.selfmod',newSrc)}catch(e){alert('Phone storage is full, so the change was not saved.');return}
+  const sp=projects.find(x=>x.id==='freddy-self');if(sp)sp.files['freddy.html']=newSrc;
+  chat.push({role:'sys',content:'Change installed. Reloading Freddy\u2026'});save();
+  setTimeout(()=>location.reload(),500);
+}
+function patchBlock(code){
+  const n=parsePatch(code).length;const st=h('p',{class:'note',textContent:n+' edit'+(n===1?'':'s')+' ready.'});
+  const wrap=h('div',{class:'cb collapsed'});
+  const hd=h('div',{class:'h'},h('span',{textContent:'freddy-patch'}),
+    h('div',{class:'actions'},
+      h('button',{class:'p',textContent:'Apply to Freddy',onclick:async()=>{st.textContent='Checking edits\u2026';try{const src=await applyPatch(code);st.textContent='All edits matched.';applySelfMod(src,n+' edit'+(n===1?'':'s'))}catch(e){st.textContent='Not applied: '+e.message}}}),
+      h('button',{textContent:'Preview result',onclick:async()=>{try{preview(await applyPatch(code))}catch(e){st.textContent='Not applied: '+e.message}}}),
+      h('button',{textContent:'Show code',onclick:e=>{e.target.textContent=wrap.classList.toggle('collapsed')?'Show code':'Hide code'}}),
+      h('button',{textContent:'Copy',onclick:e=>copy(code,e.target)})));
+  wrap.append(hd,st,h('pre',{},h('code',{textContent:code})));return wrap;
+}
+async function selfModView(){
+  const b=h('div',{class:'body'});const st=h('p',{class:'note',textContent:''});
+  const modded=!!localStorage.getItem('fc.selfmod');
+  const hist=load('fc.selfmod.hist',[]);
+  b.append(fieldLabel('Mod Freddy lets Freddy change its own app. Tap Start, then type what you want changed (for example: make the Send button green). Freddy replies with edits; tap Apply to Freddy. Changes live on this phone only.'),
+    fieldLabel(modded?'Status: running your modified Freddy.':'Status: running the original Freddy.'),st,
+    h('button',{class:'p',textContent:'Start modding Freddy',onclick:async()=>{
+      st.textContent='Loading Freddy\u2019s code\u2026';
+      try{const src=await freddySource();
+        let sp=projects.find(x=>x.id==='freddy-self');
+        if(!sp){sp={id:'freddy-self',name:'Mod Freddy',memory:'This project edits Freddy Free Coder itself.',files:{},chat:[]};projects.push(sp)}
+        sp.files['freddy.html']=src;switchProject(sp);
+        st.textContent='Received: Freddy\u2019s code ('+src.length+' characters).';
+        setTimeout(()=>{o.remove();draw();$('#inp').focus()},700);
+      }catch(e){st.textContent='Could not load Freddy\u2019s code: '+e.message}}}),
+    h('button',{textContent:'Undo last change',disabled:!hist.length,onclick:()=>{
+      const h2=load('fc.selfmod.hist',[]);const prev=h2.pop();localStorage.setItem('fc.selfmod.hist',JSON.stringify(h2));
+      if(prev)localStorage.setItem('fc.selfmod',prev);else localStorage.removeItem('fc.selfmod');location.reload()}}),
+    h('button',{textContent:'Reset to original Freddy',disabled:!modded,onclick:()=>{if(confirm('Remove all your Freddy changes?')){localStorage.removeItem('fc.selfmod');localStorage.removeItem('fc.selfmod.hist');location.reload()}}}),
+    h('button',{textContent:'Download current Freddy',onclick:async()=>download('freddy.html',await freddySource(),'text/html')}),
+    fieldLabel('If a change breaks Freddy, open the page with ?safe=1 at the end of the address. That runs the original so you can tap Undo or Reset.'));
+  const o=overlay('Mod Freddy',b);
+}
 function fieldLabel(text){return h('p',{class:'note',textContent:text})}
 function memoryView(){
  const b=h('div',{class:'body'});
@@ -503,6 +579,7 @@ function projectsView(){
 $('#bProjects').onclick=projectsView;
 $('#bFiles').onclick=filesView;
 $('#bMemory').onclick=memoryView;
+$('#bSelf').onclick=selfModView;
 $('#bMenu').onclick=()=>{
   const bar=$('#projectbar');
   const open=bar.classList.toggle('drawer-open');

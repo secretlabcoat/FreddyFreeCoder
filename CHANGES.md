@@ -10,3 +10,5 @@
 - Fixed light-mode contrast: replies and title now stay bright on the dark Freddy UI.
 
 - Phone UX: sticky Preview/Save/Download on code blocks with collapsed long code; ＋ attach beside Send; Menu drawer for Projects/Files/Memory on small screens; larger status/Via; BG show/dim/hide; stronger always-dark system prompt.
+
+- Mod Freddy: Freddy can edit its own app via SEARCH/REPLACE patches, with Apply, Preview, Undo, Reset, and ?safe=1. Unclosed code fences now render as code.
