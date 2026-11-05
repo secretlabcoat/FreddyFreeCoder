@@ -90,8 +90,8 @@ function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k
 function load(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
 const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web code (HTML/CSS/JS) in fenced code blocks. Be concise.",mode:'sticky',cur:0,last:null,providers:[
  {id:'gemini',name:'Gemini',type:'gemini',url:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-flash-lite-latest',key:'',on:true},
- {id:'groq',name:'Groq',type:'openai',url:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile',key:'',on:true},
- {id:'openrouter',name:'OpenRouter',type:'openai',url:'https://openrouter.ai/api/v1',model:'meta-llama/llama-3.3-70b-instruct:free',key:'',on:true},
+ {id:'groq',name:'Groq',type:'openai',url:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-20b',key:'',on:true},
+ {id:'openrouter',name:'OpenRouter',type:'openai',url:'https://openrouter.ai/api/v1',model:'openrouter/free',key:'',on:true},
  {id:'cerebras',name:'Cerebras',type:'openai',url:'https://api.cerebras.ai/v1',model:'llama-3.3-70b',key:'',on:true},
  {id:'mistral',name:'Mistral',type:'openai',url:'https://api.mistral.ai/v1',model:'mistral-small-latest',key:'',on:true}]};
 let cfg=load('fc.cfg',DEF),chat=load('fc.chat',[]),cool=load('fc.cool',{}),log=load('fc.log',[]),snips=load('fc.snip',[]),busy=false;
@@ -107,9 +107,12 @@ if(!Array.isArray(cfg.providers))cfg={...DEF,providers:DEF.providers.map(p=>({..
 for(const standard of DEF.providers){
   if(!cfg.providers.some(p=>p.id===standard.id))cfg.providers.push({...standard});
 }
-// Migrate retired Gemini model ids so saved keys start working again.
+// Migrate retired / unavailable model ids so saved keys start working again.
 for(const p of cfg.providers){
   if(p.id==='gemini' && (!p.model || /gemini-2\.5-flash|gemini-flash-latest$/i.test(p.model)))p.model='gemini-flash-lite-latest';
+  if(p.id==='groq' && (!p.model || /llama-3\.3-70b-versatile|llama-3\.1-8b-instant/i.test(p.model)))p.model='openai/gpt-oss-20b';
+  if(p.id==='openrouter' && (!p.model || /llama-3\.3-70b-instruct:free|gemma-3|qwen3-8b:free/i.test(p.model)))p.model='openrouter/free';
+  if(p.id==='cerebras' && p.model && /llama-3\.3-70b$/i.test(p.model))p.model='llama3.1-8b';
 }
 try{localStorage.setItem('fc.cfg',JSON.stringify(cfg))}catch(e){}
 // Everything below is saved to localStorage so closing the page loses nothing.
@@ -141,11 +144,14 @@ async function call(p,msgs,onD){
       }
       r=await fetch(base+'/models/'+encodeURIComponent(p.model)+(stream?':streamGenerateContent?alt=sse':':generateContent'),{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':p.key},body:JSON.stringify({systemInstruction:{parts:[{text:cfg.sys}]},contents})});
     }else{
-      r=await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+p.key},body:JSON.stringify({model:p.model,stream,messages:[{role:'system',content:cfg.sys},...msgs]})});
+      const headers={'Content-Type':'application/json','Authorization':'Bearer '+p.key};
+      if(p.id==='openrouter'){headers['HTTP-Referer']=location.origin+location.pathname;headers['X-Title']='Free Coder Studio'}
+      r=await fetch(base+'/chat/completions',{method:'POST',headers,body:JSON.stringify({model:p.model,stream,messages:[{role:'system',content:cfg.sys},...msgs]})});
     }
   }catch(e){throw{status:0,msg:'network/CORS error'}}
-  if(!r.ok){let t='';try{t=(await r.text()).slice(0,120)}catch(e){}
-    throw{status:r.status,retry:parseInt(r.headers.get('retry-after')||'0',10),msg:'HTTP '+r.status+' '+t}}
+  if(!r.ok){let t='';try{t=await r.text()}catch(e){}
+    let detail=t.slice(0,160);try{const j=JSON.parse(t);detail=(j.error&&(j.error.message||j.error))||j.message||detail}catch(e){}
+    throw{status:r.status,retry:parseInt(r.headers.get('retry-after')||'0',10),msg:'HTTP '+r.status+' '+String(detail).slice(0,160)}}
   const piece=d=>{
     if(!gem)return (stream?d.choices?.[0]?.delta?.content:d.choices?.[0]?.message?.content)||'';
     const c=d.candidates?.[0];

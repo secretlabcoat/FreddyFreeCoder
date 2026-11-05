@@ -1,6 +1,7 @@
 # Fixes (2026-11-05)
 
-- Gemini was calling retired `gemini-2.5-flash` (HTTP 404 for new keys). Default is now `gemini-flash-lite-latest`, which replies successfully.
-- Saved Gemini settings are migrated off the retired model automatically.
-- Gemini chat merges back-to-back same-role messages (Gemini rejects those, which also made valid keys look broken).
-- Clearer Gemini block/empty errors and longer Test button error text.
+- Gemini: retired `gemini-2.5-flash` → `gemini-flash-lite-latest` (verified).
+- Groq: retired `llama-3.3-70b-versatile` → `openai/gpt-oss-20b` (verified).
+- OpenRouter: unavailable free Llama slug → `openrouter/free` (verified), plus Referer/Title headers.
+- Saved provider settings are migrated off the old model ids automatically.
+- Gemini same-role message merge; clearer API error text on Test / chat failures.
