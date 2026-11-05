@@ -1,7 +1,6 @@
 # Fixes (2026-11-05)
 
-- Gemini: retired `gemini-2.5-flash` → `gemini-flash-lite-latest` (verified).
-- Groq: retired `llama-3.3-70b-versatile` → `openai/gpt-oss-20b` (verified).
-- OpenRouter: unavailable free Llama slug → `openrouter/free` (verified), plus Referer/Title headers.
-- Saved provider settings are migrated off the old model ids automatically.
-- Gemini same-role message merge; clearer API error text on Test / chat failures.
+- Gemini / Groq / OpenRouter model ids updated to working free models.
+- Code blocks now offer **Save as index.html**, **Download**, and **Preview** even when the AI only labels a block as `html`.
+- Files screen: **Upload photos or files** at the top, accepts photos + HTML/CSS/JS/text, shows **Received:** confirmation, shrinks large photos, and can download them back.
+- System prompt asks the AI to label fences with real filenames like ```index.html.

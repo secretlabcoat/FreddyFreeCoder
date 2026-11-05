@@ -88,7 +88,7 @@ button.p{box-shadow:0 4px 16px #567cf033}
 const $=s=>document.querySelector(s);
 function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k.startsWith('on'))e[k]=a[k];else if(k==='class')e.className=a[k];else e[k]=a[k]}c.flat().forEach(x=>e.append(x));return e}
 function load(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
-const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web code (HTML/CSS/JS) in fenced code blocks. Be concise.",mode:'sticky',cur:0,last:null,providers:[
+const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web apps. Always put FULL file contents in fenced code blocks labeled with the exact filename (example: ```index.html). Never use a bare ```html label. Be concise.",mode:'sticky',cur:0,last:null,providers:[
  {id:'gemini',name:'Gemini',type:'gemini',url:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-flash-lite-latest',key:'',on:true},
  {id:'groq',name:'Groq',type:'openai',url:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-20b',key:'',on:true},
  {id:'openrouter',name:'OpenRouter',type:'openai',url:'https://openrouter.ai/api/v1',model:'openrouter/free',key:'',on:true},
@@ -100,7 +100,7 @@ let activeId=load('fc.active','default');
 let project=projects.find(x=>x.id===activeId)||projects[0];activeId=project.id;chat=Array.isArray(project.chat)?project.chat:chat;
 function persistProjects(){project.chat=chat;localStorage.setItem('fc.projects',JSON.stringify(projects));localStorage.setItem('fc.active',JSON.stringify(activeId))}
 function switchProject(p){if(busy)return;persistProjects();project=p;activeId=p.id;chat=Array.isArray(p.chat)?p.chat:[];save();draw()}
-function projectContext(){const files=Object.entries(project.files||{});let remaining=45000;const chunks=[];for(const [name,code] of files){const part='\nFILE: '+name+'\n```\n'+code.slice(0,Math.max(0,Math.min(code.length,remaining)))+'\n```';if(remaining<=0)break;chunks.push(part);remaining-=code.length}return 'PROJECT: '+project.name+'\nPERSISTENT PROJECT MEMORY / DECISIONS:\n'+(project.memory||'None yet')+'\nPROJECT FILES ('+files.length+', capped at 45k characters total):'+chunks.join('\n')+'\nKeep existing project decisions and files consistent. When modifying a file, return its FULL updated contents in a fenced code block with the EXACT relative filename as the fence label (example: ```index.html). Never provide partial snippets as a full file. The user reviews and applies changes manually; do not claim files were saved automatically.'}
+function projectContext(){const files=Object.entries(project.files||{});let remaining=45000;const chunks=[];for(const [name,code] of files){if(remaining<=0){chunks.push('\nFILE: '+name+' (omitted — context full)');continue}let body=code;if(/^data:image\//i.test(code)){const keep=Math.min(code.length,Math.max(8000,Math.floor(remaining*0.5)));body='[PHOTO attached as data URL; first chars shown so you can reuse it in <img src=\"...\">]\n'+code.slice(0,keep);if(keep<code.length)body+='\n…(truncated)'}else{body=code.slice(0,Math.min(code.length,remaining))}const part='\nFILE: '+name+'\n```\n'+body+'\n```';chunks.push(part);remaining-=body.length}return 'PROJECT: '+project.name+'\nPERSISTENT PROJECT MEMORY / DECISIONS:\n'+(project.memory||'None yet')+'\nPROJECT FILES ('+files.length+', capped at 45k characters total):'+chunks.join('\n')+'\nKeep existing project decisions and files consistent. When modifying a file, return its FULL updated contents in a fenced code block with the EXACT relative filename as the fence label (example: ```index.html). Never use a bare ```html label. Never provide partial snippets as a full file. The user reviews and applies changes manually; do not claim files were saved automatically.'}
 
 if(!Array.isArray(cfg.providers))cfg={...DEF,providers:DEF.providers.map(p=>({...p}))};
 // Restore built-in providers removed by earlier versions, preserving existing keys and settings.
@@ -212,34 +212,58 @@ function idle(){
   status(cfg.providers.filter(p=>p.on&&p.key).map(p=>(cool[p.id]>now?'⏳ '+Math.ceil((cool[p.id]-now)/1000)+'s':'✓')+' '+p.name).join(' · ')||'No keys yet — tap Keys');
 }
 async function copy(t,b){try{await navigator.clipboard.writeText(t);b.textContent='Copied'}catch(x){b.textContent='Failed'}}
-function isHtml(lang,code){return /html/i.test(lang)||/^\s*<(!doctype|html)/i.test(code)}
+function isHtml(lang,code){return /(^|[\/.\s])html?\b/i.test(lang||'')||/^\s*<(!doctype|html|head|body|div|main|section)\b/i.test(code)}
+function isImageData(content){return typeof content==='string'&&/^data:image\//i.test(content)}
+function mimeFor(name,code){
+  if(isHtml('',code)||/\.html?$/i.test(name))return 'text/html';
+  if(/\.css$/i.test(name))return 'text/css';
+  if(/\.js$/i.test(name))return 'text/javascript';
+  if(/\.json$/i.test(name))return 'application/json';
+  if(/^data:([^;,]+)/i.test(code||''))return RegExp.$1;
+  return 'text/plain';
+}
 function proposedFilename(label,code){
- const raw=(label||'').trim().replace(/^file[:=]/i,'').trim();
- if(/^[\w .@-]+(?:\/[\w .@-]+)*\.[a-z0-9]{1,12}$/i.test(raw)&&!raw.includes('..'))return raw;
- if(/^html$/i.test(raw)&&/^\s*<!doctype html/i.test(code))return 'index.html';
- return null;
+  const raw=(label||'').trim().replace(/^file[:=]\s*/i,'').trim();
+  if(/^[\w .@-]+(?:\/[\w .@-]+)*\.[a-z0-9]{1,12}$/i.test(raw)&&!raw.includes('..'))return raw;
+  const lang=(raw.split(/[\s:{]/)[0]||'').toLowerCase();
+  if(lang==='html'||lang==='htm'||isHtml(lang,code))return 'index.html';
+  if(lang==='css')return 'styles.css';
+  if(lang==='js'||lang==='javascript')return 'script.js';
+  if(lang==='json')return 'data.json';
+  if(lang==='md'||lang==='markdown')return 'README.md';
+  if(lang==='svg'||/^\s*<svg[\s>]/i.test(code))return 'image.svg';
+  return null;
 }
 function applyReview(filename,code){
- const old=Object.prototype.hasOwnProperty.call(project.files,filename)?project.files[filename]:null;
- const b=h('div',{class:'body'});
- b.append(fieldLabel(old===null?'Create new file: '+filename:'Review replacement for: '+filename));
- if(old!==null)b.append(fieldLabel('CURRENT FILE ('+old.length+' characters)'),h('textarea',{class:'field fileedit',readOnly:true,value:old}));
- b.append(fieldLabel('PROPOSED FILE ('+code.length+' characters)'),h('textarea',{class:'field fileedit',readOnly:true,value:code}));
- b.append(h('button',{class:'p',textContent:old===null?'Create file':'Apply replacement',onclick:()=>{
-   if(old!==null&&!confirm('Replace '+filename+' with this version? A previous copy will be kept in file history.'))return;
-   project.history=project.history||[];
-   if(old!==null)project.history.push({name:filename,content:old,time:Date.now()});
-   project.history=project.history.slice(-40);
-   project.files[filename]=code;save();o.remove();draw();
- }}),h('button',{textContent:'Cancel',onclick:()=>o.remove()}));
- const o=overlay('Review AI changes',b);
+  const old=Object.prototype.hasOwnProperty.call(project.files,filename)?project.files[filename]:null;
+  const b=h('div',{class:'body'});
+  b.append(fieldLabel(old===null?'Create new file: '+filename:'Review replacement for: '+filename));
+  if(old!==null&&!isImageData(old))b.append(fieldLabel('CURRENT FILE ('+old.length+' characters)'),h('textarea',{class:'field fileedit',readOnly:true,value:old}));
+  if(!isImageData(code))b.append(fieldLabel('PROPOSED FILE ('+code.length+' characters)'),h('textarea',{class:'field fileedit',readOnly:true,value:code}));
+  else b.append(h('img',{src:code,alt:filename,style:'max-width:100%;border-radius:12px;margin:8px 0'}));
+  const status=h('p',{class:'note',textContent:''});
+  b.append(h('button',{class:'p',textContent:old===null?'Save to project files':'Replace in project files',onclick:()=>{
+    if(old!==null&&!confirm('Replace '+filename+' with this version? A previous copy will be kept in file history.'))return;
+    project.history=project.history||[];
+    if(old!==null)project.history.push({name:filename,content:old,time:Date.now()});
+    project.history=project.history.slice(-40);
+    project.files[filename]=code;save();status.textContent='Saved to project files: '+filename;setTimeout(()=>{o.remove();draw()},600);
+  }}),h('button',{textContent:'Download '+filename,onclick:()=>download(filename,code,mimeFor(filename,code))}),h('button',{textContent:'Cancel',onclick:()=>o.remove()}),status);
+  const o=overlay('Save this file',b);
 }
 function codeBlock(lang,code){
-  const hd=h('div',{class:'h'},h('span',{textContent:lang||'code'}),
+  const filename=proposedFilename(lang,code);
+  const label=filename||lang||'code';
+  const hd=h('div',{class:'h'},h('span',{textContent:label}),
     h('button',{textContent:'Copy',onclick:e=>copy(code,e.target)}),
-    h('button',{textContent:'Save',onclick:e=>{snips.push({lang,code,t:Date.now()});save();e.target.textContent='Saved'}}));
-  const filename=proposedFilename(lang,code);if(filename)hd.append(h('button',{textContent:'Review & apply → '+filename,onclick:()=>applyReview(filename,code)}));
-  if(isHtml(lang,code))hd.append(h('button',{textContent:'Run',onclick:()=>preview(code)}));
+    h('button',{textContent:'Download',onclick:()=>download(filename||(isHtml(lang,code)?'index.html':'snippet.txt'),code,mimeFor(filename||'',code))}));
+  if(filename)hd.append(h('button',{class:'p',textContent:'Save as '+filename,onclick:()=>applyReview(filename,code)}));
+  else hd.append(h('button',{textContent:'Save to project…',onclick:()=>{
+    const name=prompt('Filename to save as (e.g. index.html)','index.html');
+    if(name)applyReview(name.trim(),code);
+  }}));
+  if(isHtml(lang,code))hd.append(h('button',{textContent:'Preview',onclick:()=>preview(code)}));
+  hd.append(h('button',{textContent:'Keep snippet',onclick:e=>{snips.push({lang:filename||lang,code,t:Date.now()});save();e.target.textContent='Kept'}}));
   return h('div',{class:'cb'},hd,h('pre',{},h('code',{textContent:code.replace(/\n$/,'')})));
 }
 function body(text){
@@ -250,7 +274,7 @@ function body(text){
 }
 function draw(){
   const box=$('#msgs');box.textContent='';
-  if(!chat.length)box.append(h('div',{class:'note',textContent:'Add free API keys under Keys, then ask for code. If a provider hits a limit or errors, the next one answers automatically, and every switch is saved. Your chat, keys, cooldowns and saved snippets survive closing the page.'}));
+  if(!chat.length)box.append(h('div',{class:'note',textContent:'Add free API keys under Keys, then ask for code. When code appears, tap Save as index.html or Download. Upload photos or other HTML files under Files. Chats, keys, and files stay on this phone.'}));
   chat.forEach(m=>{
     const d=h('div',{class:'m '+m.role});
     if(m.role==='assistant')d.append(body(m.content));else d.append(h('p',{textContent:m.content}));
@@ -307,16 +331,85 @@ function memoryView(){
  b.append(ta,h('button',{class:'p',textContent:'Save memory',onclick:()=>{project.memory=ta.value;save();o.remove();draw()}}));
  const o=overlay('Project memory',b);
 }
+function readFileForProject(f){
+  return new Promise((resolve,reject)=>{
+    if(f.size>2500000){reject(new Error(f.name+' is over 2.5MB'));return}
+    const isImg=/^image\//.test(f.type)||/\.(png|jpe?g|gif|webp|heic)$/i.test(f.name);
+    if(isImg){
+      const reader=new FileReader();
+      reader.onerror=()=>reject(new Error('Could not read '+f.name));
+      reader.onload=()=>{
+        const data=String(reader.result||'');
+        // Shrink big photos so they fit in browser storage / chat context.
+        if(data.length<=350000){resolve(data);return}
+        const img=new Image();
+        img.onload=()=>{
+          const max=1280;let w=img.width,h=img.height;
+          if(w>max||h>max){const s=Math.min(max/w,max/h);w=Math.round(w*s);h=Math.round(h*s)}
+          const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(c.toDataURL('image/jpeg',0.72));
+        };
+        img.onerror=()=>resolve(data);
+        img.src=data;
+      };
+      reader.readAsDataURL(f);
+      return;
+    }
+    f.text().then(resolve,()=>reject(new Error('Could not read '+f.name)));
+  });
+}
 function filesView(){
- const b=h('div',{class:'body'});let o;
- const render=()=>{b.textContent='';b.append(fieldLabel('Project files are included as context (up to 45,000 characters total). Edit or import text/code files here. Files are stored locally in this browser.'));
- b.append(h('button',{textContent:'+ New file',onclick:()=>{const name=prompt('Filename (e.g. index.html)');if(!name)return;if(Object.hasOwn(project.files,name)){alert('File already exists');return}project.files[name]='';save();edit(name)}}),h('button',{textContent:'Import files',onclick:()=>$('#fileImport').click()}));
- const imp=h('input',{id:'fileImport',type:'file',multiple:true,style:'display:none',onchange:async e=>{for(const f of e.target.files){if(f.size>1000000){alert(f.name+' is over 1MB; skipped');continue}project.files[f.name]=await f.text()}save();render()}});b.append(imp);
- b.append(h('button',{textContent:'File history / restore',onclick:()=>historyView()}));
- Object.entries(project.files).forEach(([name,content])=>b.append(h('div',{class:'fileitem'},h('span',{textContent:name+' ('+content.length+' chars)'}),h('button',{textContent:'Edit',onclick:()=>edit(name)}),h('button',{textContent:'Export',onclick:()=>download(name,content,'text/plain')}),h('button',{textContent:'Delete',onclick:()=>{if(confirm('Delete '+name+'?')){delete project.files[name];save();render()}}}))));
- };
- const edit=name=>{b.textContent='';const ta=h('textarea',{class:'field fileedit',value:project.files[name]});b.append(fieldLabel(name),ta,h('button',{class:'p',textContent:'Save file',onclick:()=>{project.files[name]=ta.value;save();render()}}),h('button',{textContent:'Cancel',onclick:render}));};
- render();o=overlay('Project files',b);
+  const b=h('div',{class:'body'});let o;
+  const status=h('p',{class:'note',textContent:''});
+  const render=()=>{
+    b.textContent='';
+    b.append(fieldLabel('Upload photos, HTML pages, CSS, JS, or text. They stay on this phone in your browser and are sent with your chat so the AI can use them.'));
+    b.append(status);
+    const imp=h('input',{id:'fileImport',type:'file',multiple:true,accept:'image/*,.html,.htm,.css,.js,.json,.md,.txt,.svg,text/*',style:'display:none',onchange:async e=>{
+      const files=[...e.target.files];e.target.value='';
+      if(!files.length)return;
+      status.textContent='Uploading…';
+      const got=[];const skipped=[];
+      for(const f of files){
+        try{project.files[f.name]=await readFileForProject(f);got.push(f.name)}
+        catch(err){skipped.push(err.message||f.name)}
+      }
+      save();
+      status.textContent=(got.length?'Received: '+got.join(', '):'')+(skipped.length?(got.length?' · ':'')+'Skipped: '+skipped.join(', '):'');
+      render();
+    }});
+    b.append(imp);
+    b.append(h('button',{class:'p',textContent:'Upload photos or files',onclick:()=>imp.click()}),
+      h('button',{textContent:'+ New blank file',onclick:()=>{const name=prompt('Filename (e.g. index.html)');if(!name)return;if(Object.hasOwn(project.files,name)){alert('File already exists');return}project.files[name]='';save();status.textContent='Received: '+name;edit(name)}}),
+      h('button',{textContent:'File history / restore',onclick:()=>historyView()}));
+    const names=Object.keys(project.files);
+    if(!names.length)b.append(fieldLabel('No files yet. Tap Upload photos or files.'));
+    names.forEach(name=>{
+      const content=project.files[name];
+      const row=h('div',{class:'fileitem'},h('span',{textContent:name+' · '+(isImageData(content)?'photo':'')+(isImageData(content)?'':content.length+' chars')}));
+      if(isImageData(content))row.append(h('img',{src:content,alt:name,style:'width:56px;height:56px;object-fit:cover;border-radius:8px'}));
+      row.append(
+        h('button',{textContent:isImageData(content)?'View':'Edit',onclick:()=>edit(name)}),
+        h('button',{textContent:'Download',onclick:()=>download(name,content,mimeFor(name,content))}),
+        h('button',{textContent:'Delete',onclick:()=>{if(confirm('Delete '+name+'?')){delete project.files[name];save();status.textContent='Deleted '+name;render()}}})
+      );
+      b.append(row);
+    });
+  };
+  const edit=name=>{
+    b.textContent='';
+    const content=project.files[name];
+    b.append(fieldLabel(name),status);
+    if(isImageData(content)){
+      b.append(h('img',{src:content,alt:name,style:'max-width:100%;border-radius:12px;margin:8px 0'}),
+        h('button',{textContent:'Download photo',onclick:()=>download(name,content,mimeFor(name,content))}),
+        h('button',{textContent:'Back',onclick:render}));
+      return;
+    }
+    const ta=h('textarea',{class:'field fileedit',value:content});
+    b.append(ta,h('button',{class:'p',textContent:'Save file',onclick:()=>{project.files[name]=ta.value;save();status.textContent='Received: saved '+name;render()}}),h('button',{textContent:'Cancel',onclick:render}));
+  };
+  render();o=overlay('Project files',b);
 }
 function historyView(){
  const b=h('div',{class:'body'});const render=()=>{
@@ -329,7 +422,7 @@ function historyView(){
  }}),h('button',{textContent:'Export',onclick:()=>download(entry.name,entry.content,'text/plain')}))));
  };render();const o=overlay('File history',b);
 }
-function download(name,contents,mime){const blob=new Blob([contents],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
+function download(name,contents,mime){let url,revoke=false;if(typeof contents==='string'&&/^data:/i.test(contents)){url=contents}else{const blob=new Blob([contents],{type:mime||'text/plain'});url=URL.createObjectURL(blob);revoke=true}const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();if(revoke)setTimeout(()=>URL.revokeObjectURL(url),3000)}
 function projectsView(){
  const b=h('div',{class:'body'});let o;
  const render=()=>{b.textContent='';b.append(fieldLabel('Switch projects without losing their conversations, files, or memory. Export backups regularly: browser storage can be cleared by Safari or private browsing.'));
