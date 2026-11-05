@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Free Coder Studio</title>
+<title>Freddy Free Coder</title>
 <style>
 :root{--bg:#fff;--fg:#1a1a1a;--mut:#6b6b6b;--card:#f2f2ef;--bd:#d9d9d4;--ac:#2563eb;--acfg:#fff;--cbg:#16181d;--cfg:#e8e8e8;--err:#b42318}
 @media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#ececec;--mut:#9a9a9a;--card:#1f1f1f;--bd:#333;--ac:#5b9bff;--acfg:#0b0b0b;--cbg:#0b0c0f;--err:#ff8a80}}
@@ -77,10 +77,24 @@ button.p{box-shadow:0 4px 16px #567cf033}
 .note{line-height:1.6;font-size:13px}
 @media(max-width:600px){header{gap:6px;padding:10px 11px}header b{flex-basis:100%;font-size:18px}header button{flex:1;padding:7px 6px;font-size:12px}#projectbar{flex-wrap:wrap;padding:9px 11px}#projectbar span{flex-basis:100%}#projectbar button{flex:1}#msgs{padding:12px;gap:12px}.m{padding:11px 13px}.m.user{max-width:93%}#bar{padding:9px 10px max(9px,env(safe-area-inset-bottom))}#bSend{padding:9px 14px}.pv .r{flex-wrap:wrap}}
 
+
+/* Freddy background */
+html,body{background:#07090f url('assets/freddy-bg.jpg') center center / cover no-repeat fixed}
+body:before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:linear-gradient(180deg,rgba(7,9,15,.72),rgba(7,9,15,.82) 45%,rgba(7,9,15,.9))}
+body>*{position:relative;z-index:1}
+header,#projectbar,#bar,.ov .top{background:rgba(17,26,44,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#msgs .m{background:rgba(21,30,51,.88)}
+#msgs .m.user{background:var(--ac)}
+.ov{background:rgba(7,9,15,.94)}
+@media(prefers-color-scheme:light){
+  html,body{background-color:#101522}
+  body:before{background:linear-gradient(180deg,rgba(16,21,34,.7),rgba(16,21,34,.85))}
+}
+
 </style>
 </head>
 <body>
-<header><b>Free Coder Studio</b><button id="bNew">New</button><button id="bSn">Saved</button><button id="bLog">Log</button><button id="bSet">Keys</button><div id="status"></div></header>
+<header><b>Freddy Free Coder</b><button id="bNew">New</button><button id="bSn">Saved</button><button id="bLog">Log</button><button id="bSet">Keys</button><div id="status"></div></header>
 <div id="projectbar"><span id="projectName">Default project</span><button id="bProjects">Projects</button><button id="bFiles">Files</button><button id="bMemory">Memory</button></div>
 <div id="msgs"></div>
 <div id="bar"><textarea id="inp" rows="1" placeholder="Describe what to build or fix…"></textarea><button class="p" id="bSend">Send</button></div>
@@ -274,7 +288,7 @@ function body(text){
 }
 function draw(){
   const box=$('#msgs');box.textContent='';
-  if(!chat.length)box.append(h('div',{class:'note',textContent:'Add free API keys under Keys, then ask for code. When code appears, tap Save as index.html or Download. Upload photos or other HTML files under Files. Chats, keys, and files stay on this phone.'}));
+  if(!chat.length)box.append(h('div',{class:'note',textContent:'Freddy Free Coder: add free API keys under Keys, then ask for code. When code appears, tap Save as index.html or Download. Upload photos or other HTML under Files. Chats, keys, and files stay on this phone.'}));
   chat.forEach(m=>{
     const d=h('div',{class:'m '+m.role});
     if(m.role==='assistant')d.append(body(m.content));else d.append(h('p',{textContent:m.content}));
