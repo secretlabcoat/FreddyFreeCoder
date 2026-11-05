@@ -255,7 +255,7 @@ function settings(){
   const b=h('div',{class:'body'});
   const rebuild=()=>{
     b.textContent='';
-    b.append(h('p',{class:'note',textContent:'Keys are saved only in this browser. Order matters: top providers are tried first. Model names change often, so edit them if a provider errors.'}));
+    b.append(h('p',{class:'note',textContent:'Paste a key and tap Test. Model and URL are configured automatically; advanced settings are optional.'}));
     const mode=h('select',{onchange:e=>{cfg.mode=e.target.value;save()}},h('option',{value:'sticky',textContent:'Sticky: stay on one provider until it fails'}),h('option',{value:'rotate',textContent:'Rotate: spread requests across providers'}));
     mode.value=cfg.mode;b.append(mode);
     cfg.providers.forEach((p,i)=>{
@@ -265,8 +265,9 @@ function settings(){
           h('button',{textContent:'↑',onclick:()=>{if(i>0){[cfg.providers[i-1],cfg.providers[i]]=[cfg.providers[i],cfg.providers[i-1]];save();rebuild()}}}),
           h('button',{textContent:'✕',onclick:()=>{cfg.providers.splice(i,1);save();rebuild()}})),
         h('div',{class:'r'},h('label',{textContent:'Key'}),h('input',{type:'password',value:p.key,autocomplete:'off',placeholder:'paste free API key',oninput:e=>{p.key=e.target.value.trim();save()}})),
-        h('div',{class:'r'},h('label',{textContent:'Model'}),h('input',{type:'text',value:p.model,oninput:e=>{p.model=e.target.value.trim();save()}})),
-        h('div',{class:'r'},h('label',{textContent:'URL'}),h('input',{type:'text',value:p.url,oninput:e=>{p.url=e.target.value.trim();save()}})),
+        h('details',{},h('summary',{textContent:'Advanced settings (optional)'}),
+          h('div',{class:'r'},h('label',{textContent:'Model'}),h('input',{type:'text',value:p.model,oninput:e=>{p.model=e.target.value.trim();save()}})),
+          h('div',{class:'r'},h('label',{textContent:'URL'}),h('input',{type:'text',value:p.url,oninput:e=>{p.url=e.target.value.trim();save()}}))),
         h('div',{class:'r'},test)));
     });
     b.append(h('button',{textContent:'+ Add OpenAI-compatible provider',onclick:()=>{cfg.providers.push({id:'c'+Date.now(),name:'Custom',type:'openai',url:'https://',model:'',key:'',on:true});save();rebuild()}}));
