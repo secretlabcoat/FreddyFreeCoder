@@ -11,7 +11,7 @@
   try{var m=localStorage.getItem('fc.selfmod');if(!m)return;
     window.__FMOD=1;
     m=m.replace('<!--SELFMOD-->','<script>window.__FMOD=1<\/script><!--SELFMOD-->');
-    document.open();document.write(m);document.close();
+    document.write(m+'<plaintext style="display:none">');
   }catch(e){}
 })();
 </script>
@@ -353,6 +353,7 @@ function body(text){
   return f;
 }
 function draw(){
+  $('#projectName').textContent=project.name;
   const box=$('#msgs');box.textContent='';
   if(!chat.length)box.append(h('div',{class:'note',textContent:'Freddy Free Coder: add free API keys under Keys, then ask for code. Use ＋ beside Send to attach photos or HTML. When code appears, Preview / Save stay at the top of the block. Chats, keys, and files stay on this phone.'}));
   chat.forEach(m=>{
