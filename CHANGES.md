@@ -8,3 +8,5 @@
 - Renamed to Freddy Free Coder and set Freddy background image.
 
 - Fixed light-mode contrast: replies and title now stay bright on the dark Freddy UI.
+
+- Phone UX: sticky Preview/Save/Download on code blocks with collapsed long code; ＋ attach beside Send; Menu drawer for Projects/Files/Memory on small screens; larger status/Via; BG show/dim/hide; stronger always-dark system prompt.

@@ -97,19 +97,43 @@ button.p{background:var(--ac);color:#071124;border-color:var(--ac)}
 .ov .body,.pv,.field,.fileedit,select,textarea,input{color:#f2f5ff;background:rgba(12,18,36,.92)}
 .pv label{color:#c9d4ef}
 
+/* UX: larger status / via, sticky code actions, drawer, attach, bg modes */
+#status{font-size:14px !important;line-height:1.45;opacity:1}
+.via{font-size:13px !important;margin-top:10px}
+.cb .h{position:sticky;top:0;z-index:3;flex-wrap:wrap;gap:8px;padding:10px;background:#192237ee;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.cb .h button{min-height:36px;padding:6px 10px;font-size:13px}
+.cb.collapsed pre{max-height:110px;overflow:hidden;mask-image:linear-gradient(#000 55%,transparent);-webkit-mask-image:linear-gradient(#000 55%,transparent)}
+.cb .actions{display:flex;flex-wrap:wrap;gap:8px;width:100%;order:3}
+.cb .h span{order:0}
+#bar{align-items:flex-end;flex-wrap:wrap}
+#bAttach{min-height:48px;min-width:48px;padding:10px 12px;border-radius:13px;font-size:18px;line-height:1}
+#attachHint{flex-basis:100%;font-size:13px;color:#c9d4ef;margin:0;min-height:0}
+#projectbar .drawer-btns{display:contents}
+@media(max-width:600px){
+  #projectbar{padding:8px 11px;gap:8px}
+  #projectbar .drawer-btns{display:none}
+  #projectbar.drawer-open .drawer-btns{display:flex;flex-wrap:wrap;flex-basis:100%;gap:8px}
+  #projectbar.drawer-open .drawer-btns button{flex:1;min-height:44px}
+  #bMenu{display:inline-flex !important;min-height:40px}
+}
+#bMenu{display:none}
+body.bg-dim:before{background:linear-gradient(180deg,rgba(7,9,15,.78),rgba(7,9,15,.88) 40%,rgba(7,9,15,.94)) !important}
+body.bg-off{background:#07090f !important}
+body.bg-off:before{opacity:0 !important}
+#bBg{min-height:36px}
 
 </style>
 </head>
 <body>
-<header><b>Freddy Free Coder</b><button id="bNew">New</button><button id="bSn">Saved</button><button id="bLog">Log</button><button id="bSet">Keys</button><div id="status"></div></header>
-<div id="projectbar"><span id="projectName">Default project</span><button id="bProjects">Projects</button><button id="bFiles">Files</button><button id="bMemory">Memory</button></div>
+<header><b>Freddy Free Coder</b><button id="bNew">New</button><button id="bSn">Saved</button><button id="bLog">Log</button><button id="bSet">Keys</button><button id="bBg" title="Background">BG</button><div id="status"></div></header>
+<div id="projectbar"><span id="projectName">Default project</span><button id="bMenu" type="button">Menu</button><div class="drawer-btns"><button id="bProjects">Projects</button><button id="bFiles">Files</button><button id="bMemory">Memory</button></div></div>
 <div id="msgs"></div>
-<div id="bar"><textarea id="inp" rows="1" placeholder="Describe what to build or fix…"></textarea><button class="p" id="bSend">Send</button></div>
+<div id="bar"><button id="bAttach" type="button" title="Attach photo or file">＋</button><textarea id="inp" rows="1" placeholder="Describe what to build or fix…"></textarea><button class="p" id="bSend">Send</button><p id="attachHint" class="note" hidden></p><input id="quickAttach" type="file" multiple accept="image/*,.html,.htm,.css,.js,.json,.md,.txt,.svg,text/*" style="display:none"></div>
 <script>
 const $=s=>document.querySelector(s);
 function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k.startsWith('on'))e[k]=a[k];else if(k==='class')e.className=a[k];else e[k]=a[k]}c.flat().forEach(x=>e.append(x));return e}
 function load(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
-const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web apps. Always put FULL file contents in fenced code blocks labeled with the exact filename (example: ```index.html). Never use a bare ```html label. Be concise.",mode:'sticky',cur:0,last:null,providers:[
+const DEF={sys:"You are an expert coding assistant. Prefer complete, runnable single-file web apps. Always put FULL file contents in fenced code blocks labeled with the exact filename (example: ```index.html). Never use a bare ```html label. Be concise. For UI apps: ALWAYS force a dark theme (dark background + light text); never use prefers-color-scheme light styles that switch to a light UI. Keep selected controls visually highlighted. Recalculate live when inputs change (do not clear results when the user edits a related field).",mode:'sticky',cur:0,last:null,providers:[
  {id:'gemini',name:'Gemini',type:'gemini',url:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-flash-lite-latest',key:'',on:true},
  {id:'groq',name:'Groq',type:'openai',url:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-20b',key:'',on:true},
  {id:'openrouter',name:'OpenRouter',type:'openai',url:'https://openrouter.ai/api/v1',model:'openrouter/free',key:'',on:true},
@@ -136,6 +160,11 @@ for(const p of cfg.providers){
   if(p.id==='cerebras' && p.model && /llama-3\.3-70b$/i.test(p.model))p.model='llama3.1-8b';
 }
 try{localStorage.setItem('fc.cfg',JSON.stringify(cfg))}catch(e){}
+// Keep system prompt current for existing installs
+if(!cfg.sys || cfg.sys.indexOf('ALWAYS force a dark theme')<0){
+  if(!cfg.sys || cfg.sys.indexOf('Prefer complete, runnable single-file')>=0){cfg.sys=DEF.sys;try{localStorage.setItem('fc.cfg',JSON.stringify(cfg))}catch(e){}}
+}
+
 // Everything below is saved to localStorage so closing the page loses nothing.
 function save(){try{
   localStorage.setItem('fc.cfg',JSON.stringify(cfg));localStorage.setItem('fc.chat',JSON.stringify(chat));persistProjects();
@@ -275,17 +304,32 @@ function applyReview(filename,code){
 function codeBlock(lang,code){
   const filename=proposedFilename(lang,code);
   const label=filename||lang||'code';
-  const hd=h('div',{class:'h'},h('span',{textContent:label}),
-    h('button',{textContent:'Copy',onclick:e=>copy(code,e.target)}),
-    h('button',{textContent:'Download',onclick:()=>download(filename||(isHtml(lang,code)?'index.html':'snippet.txt'),code,mimeFor(filename||'',code))}));
-  if(filename)hd.append(h('button',{class:'p',textContent:'Save as '+filename,onclick:()=>applyReview(filename,code)}));
-  else hd.append(h('button',{textContent:'Save to project…',onclick:()=>{
+  const html=isHtml(lang,code);
+  const long=code.length>900 || (code.match(/\n/g)||[]).length>18;
+  const wrap=h('div',{class:'cb'+(long?' collapsed':'')});
+  const actions=h('div',{class:'actions'});
+  if(html)actions.append(h('button',{class:'p',textContent:'Preview',onclick:()=>preview(code)}));
+  if(filename)actions.append(h('button',{class:'p',textContent:'Save as '+filename,onclick:()=>applyReview(filename,code)}));
+  else actions.append(h('button',{textContent:'Save to project…',onclick:()=>{
     const name=prompt('Filename to save as (e.g. index.html)','index.html');
     if(name)applyReview(name.trim(),code);
   }}));
-  if(isHtml(lang,code))hd.append(h('button',{textContent:'Preview',onclick:()=>preview(code)}));
-  hd.append(h('button',{textContent:'Keep snippet',onclick:e=>{snips.push({lang:filename||lang,code,t:Date.now()});save();e.target.textContent='Kept'}}));
-  return h('div',{class:'cb'},hd,h('pre',{},h('code',{textContent:code.replace(/\n$/,'')})));
+  actions.append(
+    h('button',{textContent:'Download',onclick:()=>download(filename||(html?'index.html':'snippet.txt'),code,mimeFor(filename||'',code))}),
+    h('button',{textContent:'Copy',onclick:e=>copy(code,e.target)}),
+    h('button',{textContent:'Keep snippet',onclick:e=>{snips.push({lang:filename||lang,code,t:Date.now()});save();e.target.textContent='Kept'}})
+  );
+  const hd=h('div',{class:'h'},h('span',{textContent:label}));
+  if(long){
+    const tog=h('button',{textContent:'Show code',onclick:()=>{
+      const on=wrap.classList.toggle('collapsed');
+      tog.textContent=on?'Show code':'Hide code';
+    }});
+    hd.append(tog);
+  }
+  hd.append(actions);
+  wrap.append(hd,h('pre',{},h('code',{textContent:code.replace(/\n$/,'')})));
+  return wrap;
 }
 function body(text){
   const f=document.createDocumentFragment();let last=0,m;const re=/```([^\n`]*)\n([\s\S]*?)```/g;
@@ -295,7 +339,7 @@ function body(text){
 }
 function draw(){
   const box=$('#msgs');box.textContent='';
-  if(!chat.length)box.append(h('div',{class:'note',textContent:'Freddy Free Coder: add free API keys under Keys, then ask for code. When code appears, tap Save as index.html or Download. Upload photos or other HTML under Files. Chats, keys, and files stay on this phone.'}));
+  if(!chat.length)box.append(h('div',{class:'note',textContent:'Freddy Free Coder: add free API keys under Keys, then ask for code. Use ＋ beside Send to attach photos or HTML. When code appears, Preview / Save stay at the top of the block. Chats, keys, and files stay on this phone.'}));
   chat.forEach(m=>{
     const d=h('div',{class:'m '+m.role});
     if(m.role==='assistant')d.append(body(m.content));else d.append(h('p',{textContent:m.content}));
@@ -459,6 +503,57 @@ function projectsView(){
 $('#bProjects').onclick=projectsView;
 $('#bFiles').onclick=filesView;
 $('#bMemory').onclick=memoryView;
+$('#bMenu').onclick=()=>{
+  const bar=$('#projectbar');
+  const open=bar.classList.toggle('drawer-open');
+  $('#bMenu').textContent=open?'Close':'Menu';
+};
+document.querySelectorAll('#projectbar .drawer-btns button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const bar=$('#projectbar');
+    if(bar.classList.contains('drawer-open')){bar.classList.remove('drawer-open');$('#bMenu').textContent='Menu'}
+  });
+});
+
+function showAttach(msg){
+  const el=$('#attachHint');
+  el.hidden=!msg;el.textContent=msg||'';
+  if(msg)setTimeout(()=>{if(el.textContent===msg){el.hidden=true;el.textContent=''}},4000);
+}
+async function quickAttachFiles(fileList){
+  const files=[...fileList];
+  if(!files.length)return;
+  showAttach('Uploading…');
+  const got=[],skipped=[];
+  for(const f of files){
+    try{project.files[f.name]=await readFileForProject(f);got.push(f.name)}
+    catch(err){skipped.push(err.message||f.name)}
+  }
+  save();
+  showAttach((got.length?'Received: '+got.join(', '):'')+(skipped.length?(got.length?' · ':'')+'Skipped: '+skipped.join(', '):''));
+}
+$('#bAttach').onclick=()=>$('#quickAttach').click();
+$('#quickAttach').onchange=async e=>{const files=e.target.files;e.target.value='';await quickAttachFiles(files)};
+
+function applyBgMode(mode){
+  document.body.classList.remove('bg-dim','bg-off');
+  if(mode==='dim')document.body.classList.add('bg-dim');
+  if(mode==='off')document.body.classList.add('bg-off');
+  const labels={show:'BG: show',dim:'BG: dim',off:'BG: hide'};
+  $('#bBg').textContent=labels[mode]||'BG';
+  try{localStorage.setItem('fc.bg',mode)}catch(e){}
+}
+(function(){
+  let mode='show';
+  try{mode=localStorage.getItem('fc.bg')||'show'}catch(e){}
+  if(mode!=='dim'&&mode!=='off')mode='show';
+  applyBgMode(mode);
+})();
+$('#bBg').onclick=()=>{
+  const cur=(document.body.classList.contains('bg-off')&&'off')||(document.body.classList.contains('bg-dim')&&'dim')||'show';
+  const next=cur==='show'?'dim':cur==='dim'?'off':'show';
+  applyBgMode(next);
+};
 
 $('#bSend').onclick=send;
 $('#inp').value=(()=>{try{return localStorage.getItem('fc.draft')||''}catch(e){return ''}})();
