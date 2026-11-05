@@ -102,7 +102,12 @@ function persistProjects(){project.chat=chat;localStorage.setItem('fc.projects',
 function switchProject(p){if(busy)return;persistProjects();project=p;activeId=p.id;chat=Array.isArray(p.chat)?p.chat:[];save();draw()}
 function projectContext(){const files=Object.entries(project.files||{});let remaining=45000;const chunks=[];for(const [name,code] of files){const part='\nFILE: '+name+'\n```\n'+code.slice(0,Math.max(0,Math.min(code.length,remaining)))+'\n```';if(remaining<=0)break;chunks.push(part);remaining-=code.length}return 'PROJECT: '+project.name+'\nPERSISTENT PROJECT MEMORY / DECISIONS:\n'+(project.memory||'None yet')+'\nPROJECT FILES ('+files.length+', capped at 45k characters total):'+chunks.join('\n')+'\nKeep existing project decisions and files consistent. When modifying a file, return its FULL updated contents in a fenced code block with the EXACT relative filename as the fence label (example: ```index.html). Never provide partial snippets as a full file. The user reviews and applies changes manually; do not claim files were saved automatically.'}
 
-if(!Array.isArray(cfg.providers))cfg=DEF;
+if(!Array.isArray(cfg.providers))cfg={...DEF,providers:DEF.providers.map(p=>({...p}))};
+// Restore built-in providers removed by earlier versions, preserving existing keys and settings.
+for(const standard of DEF.providers){
+  if(!cfg.providers.some(p=>p.id===standard.id))cfg.providers.push({...standard});
+}
+try{localStorage.setItem('fc.cfg',JSON.stringify(cfg))}catch(e){}
 // Everything below is saved to localStorage so closing the page loses nothing.
 function save(){try{
   localStorage.setItem('fc.cfg',JSON.stringify(cfg));localStorage.setItem('fc.chat',JSON.stringify(chat));persistProjects();
@@ -261,9 +266,7 @@ function settings(){
     cfg.providers.forEach((p,i)=>{
       const test=h('button',{textContent:'Test',onclick:async()=>{test.textContent='…';try{await call(p,[{role:'user',content:'Reply with: ok'}]);delete cool[p.id];save();test.textContent='OK ✓'}catch(e){test.textContent=e.msg.slice(0,30)}}});
       b.append(h('div',{class:'pv'},
-        h('div',{class:'r'},h('input',{type:'checkbox',checked:p.on,onchange:e=>{p.on=e.target.checked;save()}}),h('b',{textContent:p.name,style:'flex:1'}),
-          h('button',{textContent:'↑',onclick:()=>{if(i>0){[cfg.providers[i-1],cfg.providers[i]]=[cfg.providers[i],cfg.providers[i-1]];save();rebuild()}}}),
-          h('button',{textContent:'✕',onclick:()=>{cfg.providers.splice(i,1);save();rebuild()}})),
+        h('div',{class:'r'},h('b',{textContent:p.name,style:'flex:1'})),
         h('div',{class:'r'},h('label',{textContent:'Key'}),h('input',{type:'password',value:p.key,autocomplete:'off',placeholder:'paste free API key',oninput:e=>{p.key=e.target.value.trim();save()}})),
         h('div',{class:'r'},test)));
     });
