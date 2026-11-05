@@ -109,7 +109,7 @@ for(const standard of DEF.providers){
 }
 // Migrate retired Gemini model ids so saved keys start working again.
 for(const p of cfg.providers){
-  if(p.id==='gemini' && (!p.model || /gemini-2\.5-flash/i.test(p.model)))p.model='gemini-flash-latest';
+  if(p.id==='gemini' && (!p.model || /gemini-2\.5-flash|gemini-flash-latest$/i.test(p.model)))p.model='gemini-flash-lite-latest';
 }
 try{localStorage.setItem('fc.cfg',JSON.stringify(cfg))}catch(e){}
 // Everything below is saved to localStorage so closing the page loses nothing.
